@@ -13,13 +13,13 @@ noteSchema.set('timestamps', true);
 noteSchema.methods.serialize = function () {
 
 	return {
-		_id: this._is,
+		_id: this._id,
 		title: 'title',
 		content: 'content'
 	};
 };
 
-const Note = mongoose.model('Note', noteSchema);
+
 
 
 
