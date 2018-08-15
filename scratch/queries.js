@@ -29,7 +29,7 @@ mongoose.connect(MONGODB_URI)
 		console.error(`ERROR: ${err.message}`);
 		console.error(err);
 	});
-/*
+
 //  GET 1 Note by ID=====================
 mongoose.connect(MONGODB_URI)
 	.then(() => {
@@ -69,9 +69,9 @@ mongoose.connect(MONGODB_URI)
 		console.error(`ERROR: ${err.message}`);
 		console.error(err);
 	});
-* /
+
 //  GET 1 Note by ID and UPDATE=====================
-/*
+
 mongoose.connect(MONGODB_URI)
 	.then(() => {
 		const id = '000000000000000000000005';
@@ -93,8 +93,8 @@ mongoose.connect(MONGODB_URI)
 		console.error(`ERROR: ${err.message}`);
 		console.error(err);
 	});
-	*/
-/*
+
+
 
 //  DELETE NOTE By ID=====================
 mongoose.connect(MONGODB_URI)
@@ -113,5 +113,3 @@ mongoose.connect(MONGODB_URI)
 		console.error(`ERROR: ${err.message}`);
 		console.error(err);
 	});
-
-*/
