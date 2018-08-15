@@ -2,7 +2,7 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
-const Note = require('..models/note');
+const Note = require('../models/note');
 const router = express.Router();
 
 /* ========== GET/READ ALL ITEMS ========== */
@@ -32,24 +32,26 @@ router.get('/', (req, res, next) => {
 
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
-
   const { id } = req.params;
 
-  if (!mongoose.Types.ObjectIs.isValid(id)) {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
     const err = new Error('The `id` is not valid');
     err.status = 400;
     return next(err);
   }
-  Note.find({ $or: [titleFilter, contentFilter] }).sort({ updatedAt: 'desc' });
-})
-  .then(results => {
-    return (results);
-  })
 
-  .catch(err => {
-    next(err);
-  });
-
+  Note.findById(id)
+    .then(result => {
+      if (result) {
+        res.json(result);
+      } else {
+        next();
+      }
+    })
+    .catch(err => {
+      next(err);
+    });
+});
 
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
