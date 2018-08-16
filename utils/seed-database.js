@@ -6,20 +6,9 @@ const { MONGODB_URI } = require('../config');
 const Note = require('../models/note');
 const Folder = require('../models/folder');
 
-const seedNotes = require('../db/seed/notes'); git a
+const seedNotes = require('../db/seed/notes');
 const seedFolders = require('../db/seed/folders');
 
-
-// mongoose.connect(MONGODB_URI)
-// 	.then(() => mongoose.connection.db.dropDatabase())
-// 	.then(() => Note.insertMany(seedNotes))
-// 	.then(results => {
-// 		console.info(`Inserted ${results.length} Notes`);
-// 	})
-// 	.then(() => mongoose.disconnect())
-// 	.catch(err => {
-// 		console.error(err);
-// 	});
 
 mongoose.connect(MONGODB_URI)
 	.then(() => mongoose.connection.db.dropDatabase())
@@ -30,3 +19,11 @@ mongoose.connect(MONGODB_URI)
 			Folder.createIndexes()
 		]);
 	})
+	.then(results => {
+		// console.log(results[0].length)
+		// console.log(results[1].length)
+	})
+	.then(() => mongoose.disconnect())
+	.catch(err => {
+		console.error(err);
+	});
