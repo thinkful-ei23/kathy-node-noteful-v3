@@ -8,6 +8,9 @@ const router = express.Router();
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
   const { searchTerm } = req.query;
+  const { folderId } = req.query;
+
+  console.log(folderId);
 
   let filter = {};
 
@@ -18,9 +21,12 @@ router.get('/', (req, res, next) => {
     const re = new RegExp(searchTerm, 'i');
     filter.$or = [{ 'title': re }, { 'content': re }];
   }
+  if (folderId) {
+    filter = folderId
+  }
 
 
-  Note.find(filter)
+  Note.find({ folderId })
     .sort({ updatedAt: 'desc' })
     .then(results => {
       res.json(results);
@@ -55,7 +61,7 @@ router.get('/:id', (req, res, next) => {
 
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
-  const { title, content } = req.body;
+  const { title, content, folderId } = req.body;
 
 
   /***** Never trust users - validate input *****/
@@ -65,7 +71,13 @@ router.post('/', (req, res, next) => {
     return next(err);
   }
 
-  const newNote = { title, content };
+  if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
+    const err = new Error('The `folderId` is not valid');
+    err.status = 400;
+    return next(err);
+  }
+
+  const newNote = { title, content, folderId };
 
   Note.create(newNote)
     .then(result => {
@@ -82,7 +94,7 @@ router.post('/', (req, res, next) => {
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
   const { id } = req.params;
-  const { title, content } = req.body;
+  const { title, content, folderId } = req.body;
 
   /***** Never trust users - validate input *****/
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -97,7 +109,12 @@ router.put('/:id', (req, res, next) => {
     return next(err);
   }
 
-  const updateNote = { title, content };
+  if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
+    const err = new Error('The `folderId` is not valid');
+    err.status = 400;
+    return next(err);
+  }
+  const updateNote = { title, content, folderId };
 
   Note.findByIdAndUpdate(id, updateItem, { new: true, upsert: true })
   then(result => {
@@ -125,7 +142,7 @@ router.delete('/:id', (req, res, next) => {
     return next(err);
   }
 
-  NoteNote.findByIdAndRemove(id)
+  Note.findByIdAndRemove(id)
     .then(() => {
       res.status(204).end();
     })
