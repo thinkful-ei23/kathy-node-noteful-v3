@@ -6,6 +6,8 @@ const app = require('../server');
 const { TEST_MONGODB_URI } = require('../config');
 const Note = require('../models/note');
 const seedNotes = require('../db/seed/notes');
+const Folder = require('../models/folder');
+const seedFolders = require('../db/seed/folders');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
@@ -18,7 +20,9 @@ describe('Noteful API - Notes', function () {
 	});
 
 	beforeEach(function () {
-		return Note.insertMany(seedNotes);
+		return Promise.all([
+			Note.insertMany(seedNotes);
+		Folder.insertMany(seedFolders)
 	});
 
 	afterEach(function () {
@@ -31,120 +35,22 @@ describe('Noteful API - Notes', function () {
 
 
 
-	//========POST test ==(Serial Request - Call API then call DB then compare)==========
-	/*Notice you need to set the res.body to body declared at a higher scope so that the next .then() has access to the value. */
-	describe('POST /api/notes', function () {
-		it('should create and return a new item when provided valid data', function () {
-			const newItem = {
-				'title': 'The best article about cats ever!',
-				'content': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor...'
-			};
+	describe('GET /api/notes', function () {
 
-			let res;
-			// 1) First, call the API
-			return chai.request(app)
-				.post('/api/notes')
-				.send(newItem)
-				.then(function (_res) {
-					res = _res;
-					expect(res).to.have.status(201);
-					expect(res).to.have.header('location');
-					expect(res).to.be.json;
-					expect(res.body).to.be.a('object');
-					expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
-					// 2) then call the database
-					return Note.findById(res.body.id);
-				})
-				// 3) then compare the API response to the database results
-				.then(data => {
-					expect(res.body.id).to.equal(data.id);
-					expect(res.body.title).to.equal(data.title);
-					expect(res.body.content).to.equal(data.content);
-					expect(new Date(res.body.createdAt)).to.eql(data.createdAt);
-					expect(new Date(res.body.updatedAt)).to.eql(data.updatedAt);
-				});
-		});
-		it('should return an error when missing "title" field', function () {
-			const newItem = {
-				'content': 'Lorem ipsum dolor sit amet, sed do eiusmod tempor...'
-			};
-			return chai.request(app)
-				.post('/api/notes')
-				.send(newItem)
-				.then(res => {
-					expect(res).to.have.status(400);
-					expect(res).to.be.json;
-					expect(res.body).to.be.a('object');
-					expect(res.body.message).to.equal('Missing `title` in request body');
-				});
-		});
-
-		it('should return an error when missing "title" field', function () {
-			const newItem = {
-				'content': 'Lorem ipsum dolor sit amet, sed do eiusmod tempor...'
-			};
-			return chai.request(app)
-				.post('/api/notes')
-				.send(newItem)
-				.then(res => {
-					expect(res).to.have.status(400);
-					expect(res).to.be.json;
-					expect(res.body).to.be.a('object');
-					expect(res.body.message).to.equal('Missing `title` in request body');
-				});
-		});
-
-	});
-
-	// ==========GET by ID (Call DB then call API then compare)===============
-	/*
-	Notice again, you need to capture the _data response and set it to the variable data declared at a higher scope so that the next .then() has access to the value. */
-	describe('GET /api/notes/:id', function () {
-		it('should return correct note', function () {
-			let data;
-			// 1) First, call the database
-			return Note.findOne()
-				.then(_data => {
-					data = _data;
-					// 2) then call the API with the ID
-					return chai.request(app).get(`/api/notes/${data.id}`);
-				})
-				.then((res) => {
+		it('should return the correct number of Notes', function () {
+			return Promise.all([
+				Note.find(),
+				chai.request(app).get('/api/notes')
+			])
+				.then(([data, res]) => {
 					expect(res).to.have.status(200);
 					expect(res).to.be.json;
-					expect(res.body).to.be.an('object');
-					expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
-
-					// 3) then compare database results to API response
-					expect(res.body.id).to.equal(data.id);
-					expect(res.body.title).to.equal(data.title);
-					expect(res.body.content).to.equal(data.content);
-					expect(new Date(res.body.createdAt)).to.eql(data.createdAt);
-					expect(new Date(res.body.updatedAt)).to.eql(data.updatedAt);
+					expect(res.body).to.be.a('array');
+					expect(res.body).to.have.length(data.length);
 				});
 		});
-	});
-	//========Parallel Request - Call both DB and API, then compare
-	/*The advantage of this approach is that both responses are available in the same scope, so you do not need to set a variable at a higher scope. But this only works with GET endpoints because there are no DB changes performed.
-	*/
-	// ======== GET ALL ===========================
-	describe('GET /api/notes', function () {
-		// 1) Call the database **and** the API
-		// 2) Wait for both promises to resolve using `Promise.all`
-		return Promise.all([
-			Note.find(),
-			chai.request(app).get('/api/notes')
-		])
-			// 3) then compare database results to API response
-			.then(([data, res]) => {
-				expect(res).to.have.status(200);
-				expect(res).to.be.json;
-				expect(res.body).to.be.a('array');
-				expect(res.body).to.have.length(data.length);
-			});
 
-
-		it('should return a list with the correct fields', function () {
+		it('should return a list with the correct right fields', function () {
 			return Promise.all([
 				Note.find().sort({ updatedAt: 'desc' }),
 				chai.request(app).get('/api/notes')
@@ -156,12 +62,7 @@ describe('Noteful API - Notes', function () {
 					expect(res.body).to.have.length(data.length);
 					res.body.forEach(function (item, i) {
 						expect(item).to.be.a('object');
-						expect(item).to.include.all.keys('id', 'title', 'createdAt', 'updatedAt');
-						expect(item.id).to.equal(data[i].id);
-						expect(item.title).to.equal(data[i].title);
-						expect(item.content).to.equal(data[i].content);
-						expect(new Date(item.createdAt)).to.eql(data[i].createdAt);
-						expect(new Date(item.updatedAt)).to.eql(data[i].updatedAt);
+						expect(item).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId');
 					});
 				});
 		});
@@ -194,6 +95,24 @@ describe('Noteful API - Notes', function () {
 				});
 		});
 
+		it('should return correct search results for a folderId query', function () {
+			let data;
+			return Folder.findOne()
+				.then((_data) => {
+					data = _data;
+					return Promise.all([
+						Note.find({ folderId: data.id }),
+						chai.request(app).get(`/api/notes?folderId=${data.id}`)
+					]);
+				})
+				.then(([data, res]) => {
+					expect(res).to.have.status(200);
+					expect(res).to.be.json;
+					expect(res.body).to.be.a('array');
+					expect(res.body).to.have.length(data.length);
+				});
+		});
+
 		it('should return an empty array for an incorrect query', function () {
 			const searchTerm = 'NotValid';
 			// const re = new RegExp(searchTerm, 'i');
@@ -212,7 +131,6 @@ describe('Noteful API - Notes', function () {
 		});
 	});
 
-	// =========GET by ID ======================
 	describe('GET /api/notes/:id', function () {
 
 		it('should return correct notes', function () {
@@ -226,7 +144,8 @@ describe('Noteful API - Notes', function () {
 					expect(res).to.have.status(200);
 					expect(res).to.be.json;
 					expect(res.body).to.be.an('object');
-					expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
+					expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId');
+
 					expect(res.body.id).to.equal(data.id);
 					expect(res.body.title).to.equal(data.title);
 					expect(res.body.content).to.equal(data.content);
@@ -254,36 +173,83 @@ describe('Noteful API - Notes', function () {
 		});
 
 	});
-	// ==========PUT ====================================
-	describe('PUT /api/notes/:id', function () {
-		/*
-				it('should update the note when provided valid data', function () {
-					const updateItem = {
-						'title': 'What about dogs?!',
-						'content': 'woof woof'
-					};
-					let data;
-					return Note.findOne()
-						.then(_data => {
-							data = _data;
-							return chai.request(app)
-								.put(`/api/notes/${data.id}`)
-								.send(updateItem);
-						})
-						.then(function (res) {
-							expect(res).to.have.status(200);
-							expect(res).to.be.json;
-							expect(res.body).to.be.a('object');
-							expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
-							expect(res.body.id).to.equal(data.id);
-							expect(res.body.title).to.equal(updateItem.title);
-							expect(res.body.content).to.equal(updateItem.content);
-							expect(new Date(res.body.createdAt)).to.eql(data.createdAt);
-							// expect note to have been updated
-							expect(new Date(res.body.updatedAt)).to.greaterThan(data.updatedAt);
-						});
+
+	describe('POST /api/notes', function () {
+
+		it('should create and return a new item when provided valid data', function () {
+			const newItem = {
+				'title': 'The best article about cats ever!',
+				'content': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor...'
+			};
+			let res;
+			return chai.request(app)
+				.post('/api/notes')
+				.send(newItem)
+				.then(function (_res) {
+					res = _res;
+					expect(res).to.have.status(201);
+					expect(res).to.have.header('location');
+					expect(res).to.be.json;
+					expect(res.body).to.be.a('object');
+					expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
+					return Note.findById(res.body.id);
+				})
+				.then(data => {
+					expect(res.body.id).to.equal(data.id);
+					expect(res.body.title).to.equal(data.title);
+					expect(res.body.content).to.equal(data.content);
+					expect(new Date(res.body.createdAt)).to.eql(data.createdAt);
+					expect(new Date(res.body.updatedAt)).to.eql(data.updatedAt);
 				});
-		*/
+		});
+
+		it('should return an error when missing "title" field', function () {
+			const newItem = {
+				'content': 'Lorem ipsum dolor sit amet, sed do eiusmod tempor...'
+			};
+			return chai.request(app)
+				.post('/api/notes')
+				.send(newItem)
+				.then(res => {
+					expect(res).to.have.status(400);
+					expect(res).to.be.json;
+					expect(res.body).to.be.a('object');
+					expect(res.body.message).to.equal('Missing `title` in request body');
+				});
+		});
+
+	});
+
+	describe('PUT /api/notes/:id', function () {
+
+		it('should update the note when provided valid data', function () {
+			const updateItem = {
+				'title': 'What about dogs?!',
+				'content': 'woof woof'
+			};
+			let data;
+			return Note.findOne()
+				.then(_data => {
+					data = _data;
+					return chai.request(app)
+						.put(`/api/notes/${data.id}`)
+						.send(updateItem);
+				})
+				.then(function (res) {
+					expect(res).to.have.status(200);
+					expect(res).to.be.json;
+					expect(res.body).to.be.a('object');
+					expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId');
+
+					expect(res.body.id).to.equal(data.id);
+					expect(res.body.title).to.equal(updateItem.title);
+					expect(res.body.content).to.equal(updateItem.content);
+					expect(new Date(res.body.createdAt)).to.eql(data.createdAt);
+					// expect note to have been updated
+					expect(new Date(res.body.updatedAt)).to.greaterThan(data.updatedAt);
+				});
+		});
+
 
 		it('should respond with status 400 and an error message when `id` is not valid', function () {
 			const updateItem = {
@@ -298,22 +264,21 @@ describe('Noteful API - Notes', function () {
 					expect(res.body.message).to.eq('The `id` is not valid');
 				});
 		});
-		/*
-				it('should respond with a 404 for an id that does not exist', function () {
-					// The string "DOESNOTEXIST" is 12 bytes which is a valid Mongo ObjectId
-					const updateItem = {
-						'title': 'What about dogs?!',
-						'content': 'woof woof'
-					};
-					//console.log(updateItem);
-					return chai.request(app)
-						.put('/api/notes/DOESNOTEXIST')
-						.send(updateItem)
-						.then(res => {
-							expect(res).to.have.status(404);
-						});
+
+		it('should respond with a 404 for an id that does not exist', function () {
+			// The string "DOESNOTEXIST" is 12 bytes which is a valid Mongo ObjectId
+			const updateItem = {
+				'title': 'What about dogs?!',
+				'content': 'woof woof'
+			};
+			return chai.request(app)
+				.put('/api/notes/DOESNOTEXIST')
+				.send(updateItem)
+				.then(res => {
+					expect(res).to.have.status(404);
 				});
-		*/
+		});
+
 		it('should return an error when missing "title" field', function () {
 			const updateItem = {
 				'content': 'woof woof'
@@ -334,7 +299,30 @@ describe('Noteful API - Notes', function () {
 					expect(res.body.message).to.equal('Missing `title` in request body');
 				});
 		});
+
 	});
+
+	describe('DELETE /api/notes/:id', function () {
+
+		it('should delete an existing document and respond with 204', function () {
+			let data;
+			return Note.findOne()
+				.then(_data => {
+					data = _data;
+					return chai.request(app).delete(`/api/notes/${data.id}`);
+				})
+				.then(function (res) {
+					expect(res).to.have.status(204);
+					return Note.count({ _id: data.id });
+				})
+				.then(count => {
+					expect(count).to.equal(0);
+				});
+		});
+
+	});
+
+});
 });
 
 
